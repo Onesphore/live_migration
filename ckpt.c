@@ -97,10 +97,11 @@ checkpoint(int signal_USR2){
     if (write(connfd, &xp, sizeof(xp)) == -1){
       exit_with_msg("write()");
     }
-
+    write(connfd, &xp, sizeof(xp));
     void *pageAddr;
     while (1){ // wait for PAGE_FAULT requests.
       memset(&cmd, 0, sizeof(cmd));
+      printf("hey\n");
       if (read(connfd, &cmd, sizeof(cmd)) == -1){
         exit_with_msg("read()");
       }

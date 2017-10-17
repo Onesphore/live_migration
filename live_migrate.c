@@ -96,9 +96,14 @@ int main(int argc, char *argv[])
   action.sa_flags = SA_SIGINFO;
   action.sa_sigaction = segfault_handler;
 
+
   if (sigaction(SIGSEGV, &action, NULL) == -1){
     exit_with_msg("sigaction()");
   }
+
+  static int *p;
+  read(skt_live_migrate, &p, sizeof(p));
+  printf("%d\n", *p); 
 
   if (setcontext(&context) == -1){
     exit_with_msg("setcontext()");
