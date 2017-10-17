@@ -23,11 +23,11 @@ ckpt.o: ckpt.c
 # ./restart myckpt will read the ckpt image "myckpt" into
 # the myrestart address space. And then hello will restart
 # from where it left off.
+# -lm: for the math library.
 live_migrate: live_migrate.c
 	${CC} ${CFLAGS} -static \
         -Wl,-Ttext-segment=6400000 -Wl,-Tdata=6500000 -Wl,-Tbss=6600000 \
-         -o live_migrate live_migrate.c
-
+         -o live_migrate live_migrate.c -lm
 
 
 # Will make testing our code faster

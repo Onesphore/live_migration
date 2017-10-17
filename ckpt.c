@@ -1,20 +1,19 @@
 #include "ckpt.h"
 
-// int is_ckpt = 31; // just a random number
-// int *is_ckpt_p = &is_ckpt;
-
 __attribute__((constructor)) void before_main(void){
   if (signal(SIGNUM, checkpoint) == SIG_ERR){
     exit_with_msg("signal()");
   }
 }
 
+int x = 9;
+int *xp = &x;
 void 
 checkpoint(int signal_USR2){
   pid_t pid = getpid();
-  pid_t ppid = getppid();
-  static pid_t product;
-  product  = pid * ppid; // just in case live_migrate might have the same pid
+//  pid_t ppid = getppid();
+//  static pid_t product;
+//  product  = pid * ppid; // just in case live_migrate might have the same pid
                          // but it is very less likely it will have the same ppid.
 
   memset(&context, 0, sizeof(context));
@@ -22,7 +21,7 @@ checkpoint(int signal_USR2){
     exit_with_msg("getcontext()");
   }
 
-  if (product == getpid() * getppid()){
+  if (pid == getpid()){
   //if (is_ckpt == 31)
 
     int libckpt_host_fd;
@@ -38,7 +37,7 @@ checkpoint(int signal_USR2){
       exit_with_msg("close()");
     }
     
-    // this process will act as server: --client-server model--
+    // this process will act as a server: --client-server model--
     // address of server
     struct sockaddr_in serverAddr;
     memset(&serverAddr, 0, sizeof(serverAddr));
@@ -64,9 +63,6 @@ checkpoint(int signal_USR2){
     in_port_t listener_port = serverAddr.sin_port;
     // mark the socket endpoint of server passive.
     listen(listenfd, 10);
-  
-    
-
 
     pid_t pid = fork();
     if (pid == -1){
@@ -98,13 +94,31 @@ checkpoint(int signal_USR2){
     if (write(connfd, &context, sizeof(context)) == -1){
       exit_with_msg("write()");
     }  
-    // send the pointer to is_ckpt;
-    if (write(connfd, &is_ckpt_p, sizeof(is_ckpt_p)) == -1){
+    if (write(connfd, &xp, sizeof(xp)) == -1){
       exit_with_msg("write()");
     }
 
+    void *pageAddr;
     while (1){ // wait for PAGE_FAULT requests.
-       ;
+      memset(&cmd, 0, sizeof(cmd));
+      if (read(connfd, &cmd, sizeof(cmd)) == -1){
+        exit_with_msg("read()");
+      }
+      if (cmd == PAGE_FAULT){
+        //the read the page address
+        memset(&pageAddr, 0, sizeof(pageAddr));
+        if (read(connfd, &pageAddr, sizeof(pageAddr)) == -1){
+          exit_with_msg("read()");
+        }
+        // send PAGE sized data in that address.
+        if (write(connfd, pageAddr, PGSIZE) == -1){
+          exit_with_msg("write()");
+        }
+
+      }else{
+        printf("should respect the protocol\n");
+        exit(EXIT_FAILURE);//FIXME: better measure should be taken.
+      }
     }
   }
 }

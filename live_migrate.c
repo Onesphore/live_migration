@@ -1,5 +1,17 @@
 #include "ckpt.h"
 
+#define MEMSECTION_NUM 15
+
+//FIXME:
+// I am using an array to store received memory section headers.
+// This design limits the number of memory section the process can
+// have or memory will be wasted.
+// A linked list data structure should be used.
+mem_section* msection_array[MEMSECTION_NUM];
+
+// socket endpoint of "live_migrate" process
+int skt_live_migrate;
+
 int main(int argc, char *argv[])
 {
   assert(argc == 3);
@@ -54,7 +66,6 @@ int main(int argc, char *argv[])
   serverAddr.sin_addr.s_addr = server_addr;
   serverAddr.sin_port = server_port;
   // socket endpoint of "live_migrate" process
-  static int skt_live_migrate;
   if ((skt_live_migrate = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
     exit_with_msg("socket()");
   }
@@ -79,10 +90,16 @@ int main(int argc, char *argv[])
   }
   
   // -- then restart --
-  // install a PAGE FAULT handler.
-  if (signal(SIGSEGV, segfault_handler) == SIG_ERR){
-    exit_with_msg("signal()");
+  // first install a PAGE FAULT handler: using sigaction
+  static struct sigaction action;
+  memset(&action, 0, sizeof(action));
+  action.sa_flags = SA_SIGINFO;
+  action.sa_sigaction = segfault_handler;
+
+  if (sigaction(SIGSEGV, &action, NULL) == -1){
+    exit_with_msg("sigaction()");
   }
+
   if (setcontext(&context) == -1){
     exit_with_msg("setcontext()");
   }
@@ -94,11 +111,23 @@ receive_ckpt_image(int fd){
   static int prot = PROT_NONE;
   static int flags = MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS;
   static mem_section msection;
+//  static int i; //index into the memory section array
+//  i = 0;
   memset(&msection, 0, sizeof(msection));
   if (read(fd, &msection, sizeof(msection)) == -1){
     exit_with_msg("read()");
   }
-
+  // allocate memory(heap) to the ith memory section header.
+  // And keep the section header in the array.
+//  msection_array[i] = (mem_section *) malloc(sizeof(mem_section));
+//  msection_array[i]->readable = msection.readable;
+//  msection_array[i]->writable = msection.writable;
+//  msection_array[i]->executable = msection.executable;
+//  msection_array[i]->address = msection.address;
+//  msection_array[i]->size = msection.size;
+//  msection_array[i]->is_stack = msection.is_stack;
+//  msection_array[i]->is_last_section = msection.is_last_section;
+//  i++;
   while (msection.is_last_section == FALSE){
     if (msection.is_stack == TRUE){
       flags = flags|MAP_GROWSDOWN;
@@ -113,6 +142,17 @@ receive_ckpt_image(int fd){
     if (read(fd, &msection, sizeof(msection)) == -1){
       exit_with_msg("read()");
     }
+    // allocate memory(heap) to the ith memory section header.
+    // And keep the section header in the array.
+//    msection_array[i] = (mem_section *) malloc(sizeof(mem_section));
+//    msection_array[i]->readable = msection.readable;
+//    msection_array[i]->writable = msection.writable;
+//    msection_array[i]->executable = msection.executable;
+//    msection_array[i]->address = msection.address;
+//    msection_array[i]->size = msection.size;
+//    msection_array[i]->is_stack = msection.is_stack;
+//    msection_array[i]->is_last_section = msection.is_last_section;
+//    i++;
   }
 }
 
@@ -250,10 +290,41 @@ void exit_with_msg(const char *msg){
 
 void restore_memory(void){return;}
 
-void segfault_handler(int signum){
-;
 
+void segfault_handler(int signum, siginfo_t *siginfo, void *ucp){
+  // send PAG_FAULT cmd to the server
+  enum command cmd = PAGE_FAULT;
+  if (write(skt_live_migrate, &cmd, sizeof(cmd)) == -1){
+    exit_with_msg("write()");
+  }
+  //-- send the page address --
+  // get which address segfaulted 
+  void *addr = (void *) siginfo->si_addr;
+  void *VPaddr = addr_to_VPaddr(addr);
+  // change the permission in the corresponding mem region.
+  //FIXME: 
+  // for now I am giving all permissions, should give the right
+  // permissions.
+  if (mprotect(VPaddr, PGSIZE, PROT_WRITE|PROT_READ|PROT_EXEC) == -1){
+    exit_with_msg("mprotect()");
+  }
 
+  if (write(skt_live_migrate, &VPaddr, sizeof(VPaddr)) == -1){
+    exit_with_msg("write()");
+  }
+
+  //-- receive the page -- 
+  // read data in memory
+  if (read(skt_live_migrate, VPaddr, PGSIZE) == -1){
+    exit_with_msg("read()");
+  }
+  // the execution continues where it segfaulted, it
+  // reexecutes the same instruction but it won't segfault this time.
 }
 
-
+void *addr_to_VPaddr(void *addr){
+  void *VPaddr = (void *) ((long long unsigned)addr >> SHIFT);
+  VPaddr = (void *) ((long long unsigned)VPaddr << SHIFT);
+  
+  return VPaddr;
+}

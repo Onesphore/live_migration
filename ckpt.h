@@ -15,26 +15,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <math.h>
 
 #define SIGNUM SIGUSR2
 #define PGSIZE sysconf(_SC_PAGESIZE)
+#define SHIFT (int)(log(PGSIZE)/log(2))
 
 #define SERVER_IP "127.0.0.1" // local host
 
 // ----  Global variables ---- //
 ucontext_t context; // the variable to store the context of the user program
-/* 
--is_ckpt. This variable is used to check if it's checkpoint time
-or restart time.
-
--is_ckpt_p. The pointer to "is_ckpt" is stored in the ckpt image
-and before calling "setcontext()" in myrestart this pointer is
-used to change the value of "is_ckpt".
-This is possible since the memory of the user program was copied
-so was is_ckpt.
-*/
-int is_ckpt = 31;
-int *is_ckpt_p = &is_ckpt;
 
 // the structure used to store useful info
 // about mapped memory sections.
@@ -72,5 +62,6 @@ void exit_with_msg(const char*);
 void send_ckpt_image(int);
 void receive_ckpt_image(int);
 void restore_memory(void);
-void segfault_handler(int);
+void segfault_handler(int, siginfo_t *, void *);
+void* addr_to_VPaddr(void *);
 #endif
