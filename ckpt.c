@@ -64,18 +64,24 @@ checkpoint(int signal_USR2){
     // mark the socket endpoint of server passive.
     listen(listenfd, 10);
 
-    pid_t pid = fork();
-    if (pid == -1){
-      exit_with_msg("fork()");
-    }
+//    pid_t pid = fork();
+//    if (pid == -1){
+//      exit_with_msg("fork()");
+//    }
+//
+//    if (pid == 0){ // the child process
+//      char addr[64];
+//      sprintf(addr, "%u", serverAddr.sin_addr.s_addr);
+//      char port[64];
+//      sprintf(port, "%u", serverAddr.sin_port);
+//      execl("live_migrate", "live_migrate", addr, port, NULL);
+//    } 
+    if 
+    char ssh_cmd[256];
+    sprintf(ssh_cmd, "ssh %s %s/live_migrate %s %d&",
+          libckpt_host, getcwd(), gethostname(), listenr_port);
+    system(ssh_cmd);
 
-    if (pid == 0){ // the child process
-      char addr[64];
-      sprintf(addr, "%u", serverAddr.sin_addr.s_addr);
-      char port[64];
-      sprintf(port, "%u", serverAddr.sin_port);
-      execl("live_migrate", "live_migrate", addr, port, NULL);
-    } 
     // accept a connection request from "live_migrate" process
     int connfd;
     if ((connfd = accept(listenfd, (struct sockaddr *) &serverAddr,
@@ -97,8 +103,33 @@ checkpoint(int signal_USR2){
     if (write(connfd, &xp, sizeof(xp)) == -1){
       exit_with_msg("write()");
     }
-    write(connfd, &xp, sizeof(xp));
+
     void *pageAddr;
+//    size_t nread;
+//    memset(&cmd, 0, sizeof(cmd));
+//    while ((nread == read(connfd, &cmd, sizeof(cmd))) > 0){
+//      if (cmd != PAGE_FAULT){
+//        printf("should respect the protocol, bye!\n");
+//        exit(EXIT_FAILURE);
+//      }
+//      memset(&pageAddr, 0, sizeof(pageAddr));
+//      if (read(connfd, &pageAddr, sizeof(pageAddr)) == -1){
+//        exit_with_msg("read()");
+//      }
+//      if (write(connfd, pageAddr, PGSIZE) == -1){
+//        exit_with_msg("write()");
+//      }
+//      memset(&cmd, 0, sizeof(cmd));
+//    }    
+//
+//    if (nread == 0){
+//      printf("live_migrate disconnected!\n");
+//      fflush(stdout);
+//    }
+//    if (nread == -1){
+//      exit_with_msg("read()");
+//    }
+
     while (1){ // wait for PAGE_FAULT requests.
       memset(&cmd, 0, sizeof(cmd));
       printf("hey\n");
@@ -117,8 +148,8 @@ checkpoint(int signal_USR2){
         }
 
       }else{
-        printf("should respect the protocol\n");
-        exit(EXIT_FAILURE);//FIXME: better measure should be taken.
+         printf("should respect the protocol\n");
+         exit(EXIT_FAILURE);//FIXME: better measure should be taken.
       }
     }
   }
@@ -162,7 +193,13 @@ send_ckpt_image(int connfd){
     msection.is_last_section = FALSE;
     if (write(connfd, &msection, sizeof(msection)) == -1){
       exit_with_msg("write()");
-    }   
+    } 
+    if (msection.is_stack == TRUE){
+      if (write(connfd, msection.address, msection.size) == -1){
+        exit_with_msg("write()");
+      }
+    }
+  
   }
 
   msection.is_last_section = TRUE;

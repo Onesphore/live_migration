@@ -93,9 +93,9 @@ int main(int argc, char *argv[])
   // first install a PAGE FAULT handler: using sigaction
   static struct sigaction action;
   memset(&action, 0, sizeof(action));
-  action.sa_flags = SA_SIGINFO;
+  action.sa_flags = SA_SIGINFO|SA_ONSTACK;
   action.sa_sigaction = segfault_handler;
-
+  sigemptyset(&action.sa_mask);
 
   if (sigaction(SIGSEGV, &action, NULL) == -1){
     exit_with_msg("sigaction()");
@@ -136,12 +136,19 @@ receive_ckpt_image(int fd){
   while (msection.is_last_section == FALSE){
     if (msection.is_stack == TRUE){
       flags = flags|MAP_GROWSDOWN;
+      prot = PROT_READ|PROT_WRITE;
     }
     if (mmap(msection.address, msection.size, prot, flags, 
                                       -1, 0) == (void *)-1){
       exit_with_msg("mmap()");
     }
-   
+    if (msection.is_stack == TRUE){
+      if (read(fd, msection.address, msection.size) == -1){
+        exit_with_msg("read()");
+      }
+      prot = PROT_NONE; // reset the protection to NONE.
+    } 
+  
     // read the next memory header section.
     memset(&msection, 0, sizeof(msection));
     if (read(fd, &msection, sizeof(msection)) == -1){
@@ -317,9 +324,9 @@ void segfault_handler(int signum, siginfo_t *siginfo, void *ucp){
   if (write(skt_live_migrate, &VPaddr, sizeof(VPaddr)) == -1){
     exit_with_msg("write()");
   }
-
   //-- receive the page -- 
   // read data in memory
+
   if (read(skt_live_migrate, VPaddr, PGSIZE) == -1){
     exit_with_msg("read()");
   }
