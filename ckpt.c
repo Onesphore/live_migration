@@ -20,8 +20,11 @@ checkpoint(int signal_USR2){
   if (getcontext(&context) == -1){
     exit_with_msg("getcontext()");
   }
-
-  if (pid == getpid()){
+  if (x == 0){
+    printf("hello there: ckpt.c!\n");
+    printf("%d\n", x);
+  }
+  if (x == 9){
   //if (is_ckpt == 31)
 
     int libckpt_host_fd;
@@ -64,23 +67,23 @@ checkpoint(int signal_USR2){
     // mark the socket endpoint of server passive.
     listen(listenfd, 10);
 
-//    pid_t pid = fork();
-//    if (pid == -1){
-//      exit_with_msg("fork()");
-//    }
-//
-//    if (pid == 0){ // the child process
-//      char addr[64];
-//      sprintf(addr, "%u", serverAddr.sin_addr.s_addr);
-//      char port[64];
-//      sprintf(port, "%u", serverAddr.sin_port);
-//      execl("live_migrate", "live_migrate", addr, port, NULL);
-//    } 
-    if 
-    char ssh_cmd[256];
-    sprintf(ssh_cmd, "ssh %s %s/live_migrate %s %d&",
-          libckpt_host, getcwd(), gethostname(), listenr_port);
-    system(ssh_cmd);
+    pid_t pid = fork();
+    if (pid == -1){
+      exit_with_msg("fork()");
+    }
+
+    if (pid == 0){ // the child process
+      char addr[64];
+      sprintf(addr, "%u", serverAddr.sin_addr.s_addr);
+      char port[64];
+      sprintf(port, "%u", serverAddr.sin_port);
+      execl("live_migrate", "live_migrate", addr, port, NULL);
+    } 
+//    int libckpt 
+//    char ssh_cmd[256];
+//    sprintf(ssh_cmd, "ssh %s %s/live_migrate %s %d&",
+//          libckpt_host, getcwd(), gethostname(), listenr_port);
+//    system(ssh_cmd);
 
     // accept a connection request from "live_migrate" process
     int connfd;
@@ -129,12 +132,14 @@ checkpoint(int signal_USR2){
 //    if (nread == -1){
 //      exit_with_msg("read()");
 //    }
-
+    int nread, nwrite;
     while (1){ // wait for PAGE_FAULT requests.
       memset(&cmd, 0, sizeof(cmd));
-      printf("hey\n");
-      if (read(connfd, &cmd, sizeof(cmd)) == -1){
+      if ((nread = read(connfd, &cmd, sizeof(cmd))) == -1){
         exit_with_msg("read()");
+      }
+      if (nread == 0){
+        continue;
       }
       if (cmd == PAGE_FAULT){
         //the read the page address
@@ -148,8 +153,11 @@ checkpoint(int signal_USR2){
         }
 
       }else{
-         printf("should respect the protocol\n");
-         exit(EXIT_FAILURE);//FIXME: better measure should be taken.
+           ;
+       //  close(connfd);
+       //  exit(EXIT_SUCCESS);
+         //printf("should respect the protocol\n");
+         //exit(EXIT_FAILURE);//FIXME: better measure should be taken.
       }
     }
   }

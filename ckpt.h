@@ -16,6 +16,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <math.h>
+#include <sys/prctl.h>
 
 #define SIGNUM SIGUSR2
 #define PGSIZE sysconf(_SC_PAGESIZE)

@@ -14,6 +14,10 @@ int skt_live_migrate;
 
 int main(int argc, char *argv[])
 {
+  if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == -1){
+    exit_with_msg("prctl()");
+  }
+
   assert(argc == 3);
   static uint32_t server_addr;
   server_addr = (uint32_t) atoi(argv[1]);
@@ -103,7 +107,8 @@ int main(int argc, char *argv[])
 
   static int *p;
   read(skt_live_migrate, &p, sizeof(p));
-  printf("%d\n", *p); 
+  *p = 0;
+  //printf("%d\n", *p); 
 
   if (setcontext(&context) == -1){
     exit_with_msg("setcontext()");
@@ -317,6 +322,12 @@ void segfault_handler(int signum, siginfo_t *siginfo, void *ucp){
   //FIXME: 
   // for now I am giving all permissions, should give the right
   // permissions.
+  // make sure the page is mapped.
+  int prot = PROT_NONE;
+  int flags = MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS;  
+  if (mmap(VPaddr, PGSIZE, prot, flags, -1, 0) == (void *)-1){
+    exit_with_msg("mmap()"); 
+  }
   if (mprotect(VPaddr, PGSIZE, PROT_WRITE|PROT_READ|PROT_EXEC) == -1){
     exit_with_msg("mprotect()");
   }

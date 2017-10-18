@@ -60,10 +60,12 @@ int main(int argc, char *argv[]) {
       new_word = 0;
     }
   }
-
   qsort(word, num_words, sizeof(char *), cmpstringp);
-
-  for (j = 1; j < num_words; j++)
+  for (j = 1; j < num_words; j++){
     puts(word[j]);
+  }
+
+  printf("hello there: quicksort!\n"); 
+
   exit(EXIT_SUCCESS);
 }
