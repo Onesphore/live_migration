@@ -6,15 +6,10 @@ __attribute__((constructor)) void before_main(void){
   }
 }
 
-int x = 9;
+int x = 9; // just a random number
 int *xp = &x;
 void 
 checkpoint(int signal_USR2){
-  pid_t pid = getpid();
-//  pid_t ppid = getppid();
-//  static pid_t product;
-//  product  = pid * ppid; // just in case live_migrate might have the same pid
-                         // but it is very less likely it will have the same ppid.
 
   memset(&context, 0, sizeof(context));
   if (getcontext(&context) == -1){
@@ -22,23 +17,9 @@ checkpoint(int signal_USR2){
   }
   if (x == 0){
     printf("hello there: ckpt.c!\n");
-    printf("%d\n", x);
   }
   if (x == 9){
-  //if (is_ckpt == 31)
 
-    int libckpt_host_fd;
-    if ((libckpt_host_fd = open("libckpt-host.txt", O_RDONLY)) == -1){
-      exit_with_msg("open()");
-    }
-  
-    char libckpt_host[256];
-    if (read(libckpt_host_fd, libckpt_host, sizeof(libckpt_host)) == -1){
-      exit_with_msg("read()");
-    }
-    if (close(libckpt_host_fd) == -1){
-      exit_with_msg("close()");
-    }
     
     // this process will act as a server: --client-server model--
     // address of server
@@ -67,6 +48,29 @@ checkpoint(int signal_USR2){
     // mark the socket endpoint of server passive.
     listen(listenfd, 10);
 
+    // ssh cmd
+    char ssh_cmd[256];
+    int libckpt_host_fd;
+    if ((libckpt_host_fd = open("libckpt-host.txt", O_RDONLY)) == -1){
+      exit_with_msg("open()");
+    }
+    char libckpt_host[64];
+    if (read(libckpt_host_fd, libckpt_host, sizeof(libckpt_host)) == -1){
+      exit_with_msg("read()");
+    }
+    libckpt_host[strlen(libckpt_host)-1] = 0;
+    if (close(libckpt_host_fd) == -1){
+      exit_with_msg("close()");
+    }
+    char cwd[128];
+    if (getcwd(cwd, sizeof(cwd)) == NULL){
+      exit_with_msg("getcwd()");
+    }
+    uint32_t addr = serverAddr.sin_addr.s_addr;
+    uint16_t port = serverAddr.sin_port;
+    memset(ssh_cmd, 0, sizeof(ssh_cmd));
+    sprintf(ssh_cmd, "ssh %s %s/live_migrate %u %u&", libckpt_host, cwd,
+                                                            addr, port);
     pid_t pid = fork();
     if (pid == -1){
       exit_with_msg("fork()");
@@ -77,8 +81,13 @@ checkpoint(int signal_USR2){
       sprintf(addr, "%u", serverAddr.sin_addr.s_addr);
       char port[64];
       sprintf(port, "%u", serverAddr.sin_port);
+//      if (system(ssh_cmd) == -1){
+//        exit_with_msg("system()");
+//      }
       execl("live_migrate", "live_migrate", addr, port, NULL);
     } 
+   
+
 //    int libckpt 
 //    char ssh_cmd[256];
 //    sprintf(ssh_cmd, "ssh %s %s/live_migrate %s %d&",
@@ -133,12 +142,17 @@ checkpoint(int signal_USR2){
 //      exit_with_msg("read()");
 //    }
     int nread, nwrite;
+    int cnt = 0;
     while (1){ // wait for PAGE_FAULT requests.
       memset(&cmd, 0, sizeof(cmd));
       if ((nread = read(connfd, &cmd, sizeof(cmd))) == -1){
         exit_with_msg("read()");
       }
       if (nread == 0){
+        if (cnt++ == 3){
+          close(connfd);
+          exit(EXIT_SUCCESS);
+        }
         continue;
       }
       if (cmd == PAGE_FAULT){

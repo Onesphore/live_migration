@@ -17,13 +17,11 @@ int main(int argc, char *argv[])
   if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == -1){
     exit_with_msg("prctl()");
   }
-
   assert(argc == 3);
   static uint32_t server_addr;
   server_addr = (uint32_t) atoi(argv[1]);
   static in_port_t server_port;
   server_port  = (in_port_t) atoi(argv[2]);
- 
   // read the address and size of the original stack.
   int maps_fd = open("/proc/self/maps", O_RDONLY);
   static char line[128];
