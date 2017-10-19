@@ -161,6 +161,8 @@ checkpoint(int signal_USR2){
       }
     }
   }
+  printf("leaving ckpt.\n");
+  return;
 }
 
 void
