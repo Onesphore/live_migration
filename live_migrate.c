@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <ucontext.h>
 #include "ckpt.h"
 
 #define MEMSECTION_NUM 15
@@ -308,18 +310,24 @@ void restore_memory(void){return;}
 
 void segfault_handler(int signum, siginfo_t *siginfo, void *ucp){
   // send PAG_FAULT cmd to the server
+  // get which address segfaulted 
+  void *addr = (void *) siginfo->si_addr;
+  void *VPaddr = addr_to_VPaddr(addr);
+  if (VPaddr == (void *)0){
+    ucontext_t *u = (ucontext_t *)ucp;
+    u->uc_mcontext.gregs[REG_RIP]++;
+    return;
+  }
   enum command cmd = PAGE_FAULT;
   if (write(skt_live_migrate, &cmd, sizeof(cmd)) == -1){
     exit_with_msg("write()");
   }
   //-- send the page address --
-  // get which address segfaulted 
-  void *addr = (void *) siginfo->si_addr;
-  void *VPaddr = addr_to_VPaddr(addr);
   // change the permission in the corresponding mem region.
   //FIXME: 
   // for now I am giving all permissions, should give the right
   // permissions.
+
   // make sure the page is mapped.
   int prot = PROT_NONE;
   int flags = MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS;  

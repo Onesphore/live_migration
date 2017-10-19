@@ -31,13 +31,13 @@ live_migrate: live_migrate.c
 
 
 # Will make testing our code faster
-check: libckpt.a quicksort live_migrate
-	(sleep 1 && kill -12 `pgrep -n quicksort` && \
-	sleep 1 && pkill -9 -n quicksort) & 
-	./quicksort < war-and-peace.txt | less
+check: libckpt.a hello live_migrate
+	(sleep 1 && kill -12 `pgrep -n hello` && \
+	sleep 1 && pkill -9 -n hello) & 
+	./hello < war-and-peace.txt | less
 
 clean:
-	rm -rf quicksort libckpt.a live_migrate ckpt.o
+	rm -rf hello libckpt.a live_migrate ckpt.o
 
 
 
