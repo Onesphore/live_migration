@@ -11,10 +11,10 @@ LFLAGS=-static -L${DIR} -lckpt -Wl,-u,before_main
 # -end
 
 
-default: quicksort live_migrate
+default: hello live_migrate
 
-quicksort: quicksort.c libckpt.a
-	${CC} ${CFLAGS} ${LFLAGS} -o quicksort quicksort.c
+hello: hello.c libckpt.a
+	${CC} ${CFLAGS} ${LFLAGS} -o hello hello.c
 libckpt.a: ckpt.o
 	ar -rcs libckpt.a ckpt.o
 ckpt.o: ckpt.c
